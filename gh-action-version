@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+show_help() {
+  echo "Usage: $0 <owner>/<repo> [<tag-name>]"
+  echo "  Fetches the commit SHA for the specified tag of a GitHub repository."
+  echo "  If no tag is specified, fetches the latest release's commit SHA."
+}
+
+if [[ "$#" -eq 1 ]] && { [[ "$1" == "help" ]] || [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; }; then
+  show_help
+  exit 0
+fi
+
+if [[ "$#" -lt 1 ]]; then
+  echo -e "Error: Repository name not provided.\n" >&2
+  show_help >&2
+  exit 1
+fi
+
+REPO_NAME="${1}"
+
+if [ -z "${REPO_NAME}" ]; then
+  echo "Usage: gh action-version <owner>/<repo> [<tag-name>]" >&2
+  exit 1
+fi
+
+TAG_NAME="${2:-}"
+
+if [ -z "${TAG_NAME}" ]; then
+  TAG_NAME="$(gh release view -R "${REPO_NAME}" --json tagName -q '.tagName')"
+
+  if [ -z "${TAG_NAME}" ]; then
+    echo "Failed to fetch the latest release tag name. Check https://github.com/${REPO_NAME}/releases for a valid release name." >&2
+    exit 1
+  fi
+fi
+
+COMMIT_SHA="$(gh api repos/"${REPO_NAME}"/git/ref/tags/"${TAG_NAME}" --jq '.object.sha')"
+
+if [ -z "${COMMIT_SHA}" ]; then
+  echo "Failed to fetch the commit SHA for tag ${TAG_NAME}." >&2
+  exit 1
+fi
+
+echo "${REPO_NAME}@${COMMIT_SHA} # ${TAG_NAME}"

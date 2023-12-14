@@ -36,11 +36,30 @@ if [ -z "${TAG_NAME}" ]; then
   fi
 fi
 
-COMMIT_SHA="$(gh api repos/"${REPO_NAME}"/git/ref/tags/"${TAG_NAME}" --jq '.object.sha')"
+TAG_OBJECT_TYPE="$(gh api repos/"${REPO_NAME}"/git/ref/tags/"${TAG_NAME}" --jq '.object.type')"
 
-if [ -z "${COMMIT_SHA}" ]; then
-  echo "Failed to fetch the commit SHA for tag ${TAG_NAME}." >&2
-  exit 1
+# If the tag object is a commit, we can just use the SHA directly.
+if [ "${TAG_OBJECT_TYPE}" == "commit" ]; then
+  COMMIT_SHA="$(gh api repos/"${REPO_NAME}"/git/ref/tags/"${TAG_NAME}" --jq '.object.sha')"
+
+  if [ -z "${COMMIT_SHA}" ]; then
+    echo "Failed to fetch the commit SHA for tag ${TAG_NAME}." >&2
+    exit 1
+  fi
+else
+  TAG_SHA="$(gh api repos/"${REPO_NAME}"/git/ref/tags/"${TAG_NAME}" --jq '.object.sha')"
+
+  if [ -z "${TAG_SHA}" ]; then
+    echo "Failed to fetch the commit SHA for tag ${TAG_NAME}." >&2
+    exit 1
+  fi
+
+  COMMIT_SHA="$(gh api repos/"${REPO_NAME}"/git/tags/"${TAG_SHA}" --jq '.object.sha')"
+
+  if [ -z "${COMMIT_SHA}" ]; then
+    echo "Failed to fetch the commit SHA for tag ${TAG_NAME}." >&2
+    exit 1
+  fi
 fi
 
 echo "${REPO_NAME}@${COMMIT_SHA} # ${TAG_NAME}"
